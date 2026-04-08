@@ -6,7 +6,7 @@ var PERSONS    = ['Shoko', 'Momoka', 'Shunta', 'Shintaro', 'Naoya'];
 var TAB_COLORS = ['#e91e63', '#9c27b0', '#2196f3', '#4caf50', '#ff9800'];
 
 // 対象GoogleドキュメントID
-var TARGET_DOC_ID = '1ARHHXvoIgy5yS8Mi8PerplKcpGBkB59u5BOMbuYolmSPmzOw3s18UGdK';
+var TARGET_DOC_ID = '1nepU8H6LHowXbU5FZTuH1VZNvHReu7aNK8Bijb_H2OU';
 
 // 列インデックス（1始まり）
 var COL_TASK_NAME = 2; // B列
@@ -462,7 +462,8 @@ function createHeadingAndLink() {
 
   try {
     // 3. ドキュメントに見出しを追加
-    const doc = DocumentApp.openById(TARGET_DOC_ID);
+    const docId = TARGET_DOC_ID.trim();
+    const doc = DocumentApp.openById(docId);
     const body = doc.getBody();
     
     // 末尾に改行を入れてから見出し3を追加
