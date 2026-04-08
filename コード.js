@@ -428,30 +428,37 @@ function buildUsageSheet() {
 // ──────────────────────────────────────
 
 /**
- * 選択行のタスク名をGoogleドキュメントの末尾に見出しとして追加し、リンクを取得してH列に書き込む。
+ * B列にタスク名が入っている「最新の行（最終行）」を自動判別し、
+ * その内容をGoogleドキュメントの末尾に見出しとして追加、リンクを取得してH列に書き込む。
  */
 function createHeadingAndLink() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getActiveSheet();
-  const range = sheet.getActiveCell();
-  const row = range.getRow();
+  const sheet = ss.getSheetByName('全て') || ss.getActiveSheet(); // 「全て」シートを優先
+  
+  // B列の最終行を取得
+  const lastRow = sheet.getLastRow();
+  let targetRow = 0;
+  
+  // 下から上にスキャンして、B列に値がある最初の行を探す
+  for (let i = lastRow; i >= DATA_START; i--) {
+    if (sheet.getRange(i, COL_TASK_NAME).getValue()) {
+      targetRow = i;
+      break;
+    }
+  }
 
   // 1. 基本チェック
-  if (row < 3) { 
-    SpreadsheetApp.getUi().alert('⚠️ 3行目以降のデータ行を選択してください。');
+  if (targetRow < DATA_START) {
+    SpreadsheetApp.getUi().alert('⚠️ 3行目以降にタスク名が見つかりませんでした。');
     return;
   }
 
-  const taskName = sheet.getRange(row, COL_TASK_NAME).getValue();
-  if (!taskName) {
-    SpreadsheetApp.getUi().alert('⚠️ B列にタスク名を入力してください。');
-    return;
-  }
-
+  const taskName = sheet.getRange(targetRow, COL_TASK_NAME).getValue();
+  
   // 2. 重複（上書き）確認
-  const existingUrl = sheet.getRange(row, COL_DOC_URL).getValue();
+  const existingUrl = sheet.getRange(targetRow, COL_DOC_URL).getValue();
   if (existingUrl) {
-    const res = SpreadsheetApp.getUi().confirm('⚠️ H列に既にリンクがあります。ドキュメントに新しい見出しを重複して作成しますか？');
+    const res = SpreadsheetApp.getUi().confirm('⚠️ 最新行（' + targetRow + '行目）のH列には既にリンクがあります。重複して作成しますか？');
     if (res !== SpreadsheetApp.getUi().Button.YES) return;
   }
 
@@ -467,16 +474,13 @@ function createHeadingAndLink() {
     doc.saveAndClose(); // 保存して確定
 
     // 4. Docs APIを使用して headingId を取得
-    // DocumentAppでは取得できないため、Advanced Serviceを使用
     const docData = Docs.Documents.get(TARGET_DOC_ID);
     const content = docData.body.content;
     
-    // 最後の段落から headingId を探す（後ろからスキャン）
     let headingId = '';
     for (let i = content.length - 1; i >= 0; i--) {
       const element = content[i];
       if (element.paragraph && element.paragraph.paragraphStyle && element.paragraph.paragraphStyle.headingId) {
-        // 段落の中身が一致するかチェック
         const textArr = element.paragraph.elements.map(function(e) {
           return e.textRun ? e.textRun.content : '';
         });
@@ -489,14 +493,14 @@ function createHeadingAndLink() {
     }
 
     if (!headingId) {
-      throw new Error('見出しの内部IDを取得できませんでした。ドキュメントを開いて手動で確認してください。');
+      throw new Error('見出しの内部IDを取得できませんでした。');
     }
 
     // 5. URLを生成してH列に書き込む
     const docUrl = 'https://docs.google.com/document/d/' + TARGET_DOC_ID + '/edit#heading=h.' + headingId;
-    sheet.getRange(row, COL_DOC_URL).setValue(docUrl);
+    sheet.getRange(targetRow, COL_DOC_URL).setValue(docUrl);
 
-    SpreadsheetApp.getUi().alert('✅ 完了！\nドキュメントの末尾に見出しを作成し、リンクをH列に記載しました。');
+    SpreadsheetApp.getUi().alert('✅ 完了！（対象：' + targetRow + '行目）\nドキュメントの末尾に見出しを作成し、リンクをH列に記載しました。');
 
   } catch (e) {
     SpreadsheetApp.getUi().alert('❌ エラーが発生しました:\n' + e.message);
