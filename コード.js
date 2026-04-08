@@ -473,11 +473,13 @@ function createHeadingAndLink() {
     heading.setHeading(DocumentApp.ParagraphHeading.HEADING3);
     doc.saveAndClose(); // 保存して確定
 
-    // 4. Docs APIを使用して headingId を取得
-    const docData = Docs.Documents.get(TARGET_DOC_ID);
+    // 4. Docs APIを使用して headingId を取得（高速化のため取得フィールドを限定）
+    const fields = 'body/content(paragraph(paragraphStyle/headingId,elements/textRun/content))';
+    const docData = Docs.Documents.get(TARGET_DOC_ID, { fields: fields });
     const content = docData.body.content;
     
     let headingId = '';
+    // 最後から数件分をチェック（末尾に追加しているので、後ろから探すのが最速）
     for (let i = content.length - 1; i >= 0; i--) {
       const element = content[i];
       if (element.paragraph && element.paragraph.paragraphStyle && element.paragraph.paragraphStyle.headingId) {
@@ -485,6 +487,7 @@ function createHeadingAndLink() {
           return e.textRun ? e.textRun.content : '';
         });
         const text = textArr.join('').trim();
+        // 直前に書き込んだタスク名と一致する最初の見出しを採用
         if (text === taskName) {
           headingId = element.paragraph.paragraphStyle.headingId;
           break;
